@@ -1,0 +1,22 @@
+{
+    "name": "go2cinema-backend",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "prestart": "npm install",
+        "start": "forever server.js",
+        "watch": "forever -w server.js"
+    },
+    "author": "AlexWebArt",
+    "license": "MIT",
+    "dependencies": {
+        "forever": "^4.0.3",
+        "koa": "^2.7.0",
+        "koa-body": "^4.1.1",
+        "koa-mysql": "^1.0.3",
+        "koa-router": "^7.4.0",
+        "koa2-cors": "^2.0.6",
+        "mysql2": "^3.6.2"
+    }
+}
