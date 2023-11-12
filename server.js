@@ -7,6 +7,11 @@ const koaBody = require('koa-body');
 
 const mysql2 = require('mysql2/promise');
 
+const admin = {
+    login: 'admin',
+    password: 'admin'
+}
+
 const app = new Koa();
 app.use(cors());
 app.use(koaBody({
@@ -39,6 +44,29 @@ router.get('/getlist', async (ctx) => {
         console.error('Error:', err);
     }
 });
+
+router.post("/login", async (ctx) => {
+    try {
+      const { login, password } = ctx.request.body;
+      if (admin.login !== login) {
+        ctx.response.status = 400;
+        ctx.response.body = JSON.stringify({ message: "user not found" });
+        return
+      }
+  
+      if (admin.password !== password) {
+        ctx.response.status = 400;
+        ctx.response.body = JSON.stringify({ message: "invalid password" });
+        return
+      }
+      
+      ctx.response.status = 200;
+      ctx.response.body = JSON.stringify({ message: "Admin login" });
+    } catch (error) {
+        ctx.response.status = 500;
+        ctx.response.body = JSON.stringify({ message: "Server internal error" });
+    }
+  });
 
 app.use(router.routes()).use(router.allowedMethods());
 
