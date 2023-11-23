@@ -163,9 +163,9 @@ router.post("/updateHall", async (ctx) => {
       updateValues.push(requestData.hall_places);
     }
 
-    if (requestData.hall_row !== undefined) {
-      updateFields.push("`hall_row` = ?");
-      updateValues.push(requestData.hall_row);
+    if (requestData.hall_rows !== undefined) {
+      updateFields.push("`hall_rows` = ?");
+      updateValues.push(requestData.hall_rows);
     }
 
     if (requestData.hall_open !== undefined) {
@@ -202,22 +202,40 @@ router.post("/updateHall", async (ctx) => {
 
 router.post("/openHall", async (ctx) => {
   try {
-    const { login, password } = ctx.request.body;
-    if (admin.login !== login) {
+    if (!ctx.request.body || isNaN(ctx.request.body.hall_id)) {
       ctx.response.status = 400;
-      ctx.response.body = JSON.stringify({ message: "user not found" });
+      ctx.response.body = JSON.stringify({ message: "invalid data" });
       return
     }
 
-    if (admin.password !== password) {
-      ctx.response.status = 400;
-      ctx.response.body = JSON.stringify({ message: "invalid password" });
-      return
+    const connection = await mysql2.createConnection(dbConfig);
+
+    const requestData = ctx.request.body;
+
+    let updateFields = [];
+    let updateValues = [];
+
+    if (requestData.hall_open !== undefined) {
+      updateFields.push("`hall_open` = ?");
+      updateValues.push(requestData.hall_open);
     }
 
-    ctx.response.status = 200;
-    ctx.response.body = JSON.stringify({ message: "Admin login" });
+    updateValues.push(requestData.hall_id);
+
+    const [result] = await connection.execute(
+      `UPDATE \`halls\` SET ${updateFields.join(', ')} WHERE \`hall_id\` = ?`,
+      updateValues
+    );
+    console.log(result)
+    if (result.affectedRows === 0) {
+      ctx.response.status = 404;
+      ctx.response.body = JSON.stringify({ message: "Hall not found" });
+    } else {
+      ctx.response.status = 200;
+      ctx.response.body = JSON.stringify({ message: "Hall updated successfully" });
+    }
   } catch (error) {
+    console.error("Error creating hall:", error);
     ctx.response.status = 500;
     ctx.response.body = JSON.stringify({ message: "Server internal error" });
   }
@@ -233,16 +251,19 @@ router.post("/addFilm", async (ctx) => {
 
     const connection = await mysql2.createConnection(dbConfig);
 
+    const requestData = ctx.request.body
+
     const [result] = await connection.execute(
-      'INSERT INTO `films` (`film_name`, `film_discription`, `film_duration`, `film_origin`, `film_poster`) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO `films` (`film_name`, `film_description`, `film_duration`, `film_origin`, `film_poster`) VALUES (?, ?, ?, ?, ?)',
       [
         requestData.film_name,
-        requestData.film_discription || null,
+        requestData.film_description || null,
         requestData.film_duration || null,
         requestData.film_origin || null,
         requestData.film_poster || null,
       ]
     );
+    console.log(result)
 
     if (result.affectedRows === 1) {
       ctx.response.status = 200;
@@ -258,7 +279,36 @@ router.post("/addFilm", async (ctx) => {
   }
 });
 
-router.post("/createSeances", async (ctx) => {
+router.post("/removeFilm", async (ctx) => {
+  try {
+    if (!ctx.request.body || isNaN(ctx.request.body.film_id)) {
+      ctx.response.status = 400;
+      ctx.response.body = JSON.stringify({ message: "invalid data" });
+      return
+    }
+
+    const connection = await mysql2.createConnection(dbConfig);
+
+    const [result] = await connection.execute(
+      'DELETE FROM `films` WHERE `film_id` = (?)',
+      [ctx.request.body.film_id]
+    );
+    console.log(result)
+    if (result.affectedRows === 0) {
+      ctx.response.status = 404;
+      ctx.response.body = JSON.stringify({ message: "Film not found" });
+    } else {
+      ctx.response.status = 200;
+      ctx.response.body = JSON.stringify({ message: "Film deleted successfully" });
+    }
+  } catch (error) {
+    console.error("Error removing film:", error);
+    ctx.response.status = 500;
+    ctx.response.body = JSON.stringify({ message: "Server internal error" });
+  }
+});
+
+router.post("/createSeance", async (ctx) => {
   try {
     const requestData = ctx.request.body;
 
@@ -280,7 +330,7 @@ router.post("/createSeances", async (ctx) => {
         requestData.seance_end,
       ]
     );
-
+    console.log(result)
     if (result.affectedRows === 1) {
       ctx.response.status = 200;
       ctx.response.body = JSON.stringify({ message: "Seance Create" });
@@ -291,6 +341,36 @@ router.post("/createSeances", async (ctx) => {
 
   } catch (error) {
     console.error("Error creating seance:", error);
+    ctx.response.status = 500;
+    ctx.response.body = JSON.stringify({ message: "Server internal error" });
+  }
+});
+
+router.post("/removeSeance", async (ctx) => {
+
+  try {
+    if (!ctx.request.body || isNaN(ctx.request.body.seance_id)) {
+      ctx.response.status = 400;
+      ctx.response.body = JSON.stringify({ message: "invalid data" });
+      return
+    }
+
+    const connection = await mysql2.createConnection(dbConfig);
+
+    const [result] = await connection.execute(
+      'DELETE FROM `seances` WHERE `seance_id` = (?)',
+      [ctx.request.body.seance_id]
+    );
+    console.log(result)
+    if (result.affectedRows === 0) {
+      ctx.response.status = 404;
+      ctx.response.body = JSON.stringify({ message: "Seance not found" });
+    } else {
+      ctx.response.status = 200;
+      ctx.response.body = JSON.stringify({ message: "Seance deleted successfully" });
+    }
+  } catch (error) {
+    console.error("Error deleting seance:", error);
     ctx.response.status = 500;
     ctx.response.body = JSON.stringify({ message: "Server internal error" });
   }
