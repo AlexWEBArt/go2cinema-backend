@@ -4,19 +4,20 @@ const Koa = require('koa');
 const Router = require('koa-router');
 const cors = require('koa2-cors');
 const koaBody = require('koa-body');
+const bodyParser = require('koa-bodyparser');
+const session = require('koa-session');
+const passport = require('koa-passport');
+const LocalStrategy = require('passport-local').Strategy;
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 
 const mysql2 = require('mysql2/promise');
 
 const admin = {
-  login: 'admin',
-  password: 'admin'
+  username: 'admin',
+  password: 'admin', // Хешированный пароль - admin
+  id: 1,
 }
-
-const app = new Koa();
-app.use(cors());
-app.use(koaBody({
-  json: true
-}));
 
 const dbConfig = {
   host: 'localhost',
@@ -25,7 +26,76 @@ const dbConfig = {
   database: 'go2cinemaDB',
 };
 
+const app = new Koa();
+app.use(cors());
+app.use(koaBody({
+  json: true
+}));
+
+passport.use(new LocalStrategy(
+  async function(username, password, done) {
+    const passwordHash = await bcrypt.hash(admin.password, 6)
+    console.log(passwordHash)
+    console.log(password)
+    try {
+      if (admin.username !== username) {
+        return done(null, false, { message: 'user not found' });
+      }
+
+      const passwordMatch = await bcrypt.compare(password, passwordHash);
+
+      if (!passwordMatch) {
+        return done(null, false, { message: 'invalid password' });
+      }
+
+      return done(null, admin);
+    } catch (error) {
+      return done(error);
+    }
+  }
+));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser((id, done) => {
+  try {
+    // Здесь можно получить пользователя из базы данных по id
+    if (id === admin.id) {
+      return done(null, admin);
+    } else {
+      return done(null, false);
+    }
+  } catch (error) {
+    return done(error);
+  }
+});
+
+app.keys = [''];
+app.use(session({}, app));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 const router = new Router();
+
+router.post("/login", bodyParser(), async (ctx, next) => {
+  const body = ctx.request.body;
+  await passport.authenticate('local', { username: body.login, password: body.password }, (err, user, info, status) => {
+    console.log(body)
+    console.log(info)
+    console.log(user)
+    if (user === false) {
+      ctx.response.status = 401;
+      ctx.response.body = { success: false, message: info.message };
+    } else {
+      const token = jwt.sign({ id: user.id, username: user.login }, 'admin', { expiresIn: '1h' });
+      ctx.response.status = 200;
+      ctx.response.body = { success: true, token: token };
+    }
+  })(ctx, next);
+});
 
 router.get('/getlist', async (ctx) => {
   try {
@@ -42,29 +112,6 @@ router.get('/getlist', async (ctx) => {
     ctx.status = 500;
     ctx.body = { error: err.message };
     console.error('Error:', err);
-  }
-});
-
-router.post("/login", async (ctx) => {
-  try {
-    const { login, password } = ctx.request.body;
-    if (admin.login !== login) {
-      ctx.response.status = 400;
-      ctx.response.body = JSON.stringify({ message: "user not found" });
-      return
-    }
-
-    if (admin.password !== password) {
-      ctx.response.status = 400;
-      ctx.response.body = JSON.stringify({ message: "invalid password" });
-      return
-    }
-
-    ctx.response.status = 200;
-    ctx.response.body = JSON.stringify({ message: "Admin login" });
-  } catch (error) {
-    ctx.response.status = 500;
-    ctx.response.body = JSON.stringify({ message: "Server internal error" });
   }
 });
 
@@ -376,7 +423,8 @@ router.post("/removeSeance", async (ctx) => {
   }
 });
 
-app.use(router.routes()).use(router.allowedMethods());
+app.use(router.routes());
+app.use(router.allowedMethods());
 
 const port = process.env.PORT || 7070;
 const server = http.createServer(app.callback());
