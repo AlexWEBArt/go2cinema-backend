@@ -3,10 +3,10 @@ const router = new Router();
 const mysql2 = require('mysql2/promise');
 
 const dbConfig = {
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'go2cinemaDB',
+    host: 'sql11.freesqldatabase.com',
+    user: 'sql11685890',
+    password: 'AeUwJCMkuI',
+    database: 'sql11685890',
   };
 
 router.post("/createHall", async (ctx) => {
